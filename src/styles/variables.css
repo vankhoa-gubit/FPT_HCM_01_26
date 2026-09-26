@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light dark;
+  
+  /* Vintage Archival Paper & Parchment */
+  --paper-cream: #faf5eb;
+  --paper-warm: #f4ece0;
+  --paper-aged: #ebdcc7;
+  --paper-deep: #ded0b7;
+  
+  /* Revolutionary Crimson & Silk Flag Red */
+  --red-primary: #961313;
+  --red-bright: #b81919;
+  --red-deep: #6e0c0c;
+  --red-darkest: #4a0606;
+  --red-ribbon-gradient: linear-gradient(135deg, #780e0e 0%, #9e1616 45%, #b51c1c 70%, #5e0808 100%);
+  
+  /* Archival & Radiant Gold */
+  --gold-primary: #d4a338;
+  --gold-bright: #f5cb58;
+  --gold-deep: #a87922;
+  --gold-pale: #f2dec0;
+  --gold-glow: rgba(245, 203, 88, 0.45);
+  
+  /* Historical Ink & Print Typography */
+  --ink-primary: #1e1915;
+  --ink-secondary: #3d332a;
+  --ink-muted: #6e6052;
+  --ink-hairline: rgba(74, 58, 44, 0.22);
+  
+  /* Backward-compatible variables for existing components */
+  --background-dark: #12100e;
+  --background-deep: #1b1612;
+  --paper: var(--paper-warm);
+  --text-main: var(--ink-primary);
+  --text-secondary: var(--ink-secondary);
+  --text-muted: var(--ink-muted);
+  --archival-gold: var(--gold-primary);
+  --archival-gold-bright: var(--gold-bright);
+  --muted-red: var(--red-primary);
+  --hairline: var(--ink-hairline);
+  
+  /* Typography */
+  --font-sans: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Noto Serif', 'Times New Roman', Georgia, serif;
+  
+  /* Safe boundaries */
+  --safe-x: 5.5vw;
+  --safe-y: 5.2vh;
+}
