@@ -1,525 +1,203 @@
-import type { CSSProperties } from 'react';
+import type { ReactNode } from 'react';
 import type { SceneDefinition } from '../data/scenes';
-import { formatDuration } from '../data/scenes';
-import { getHistoricalEntry } from '../data/historicalContent';
-import { SourceBadge } from '../components/SourceBadge';
+import { BookOpen } from 'lucide-react';
 import { usePresentationStore } from '../store/presentationStore';
 
-interface SceneContentProps {
+function SourceRow({ scene }: { scene: SceneDefinition }) {
+  const toggleSources = usePresentationStore((state) => state.toggleSources);
+  return scene.sourceIds.length ? (
+    <div className="scene-source-row" aria-label="Nguồn tư liệu">
+      <button className="scene-source-action" type="button" onClick={toggleSources} aria-label={`Mở ${scene.sourceIds.length} nguồn tư liệu của cảnh này`}>
+        <BookOpen size={15} aria-hidden="true" />
+        <span>Nguồn tư liệu ({scene.sourceIds.length})</span>
+      </button>
+    </div>
+  ) : null;
+}
+
+function Frame({ scene, children, visual, className = '' }: {
+  scene: SceneDefinition;
+  children: ReactNode;
+  visual?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={'scene-layout ' + className}>
+      <div className="scene-copy">
+        <p className="eyebrow">{scene.eyebrow}<span className="eyebrow-rule" aria-hidden="true" /></p>
+        <h1 className="serif-heading">{scene.title}</h1>
+        {children}
+        <SourceRow scene={scene} />
+      </div>
+      {visual && <aside className="scene-artifact">{visual}</aside>}
+    </div>
+  );
+}
+function Artifact({ id, label, note }: { id: string; label: string; note: string }) {
+  return (
+    <div className="artifact-slot" data-artifact-slot={id} aria-hidden="true">
+      <div className="artifact-slot__copy"><span>{label}</span><small>{note}</small></div>
+    </div>
+  );
+}
+
+function Poll({ id, prompt, options, answer, explanation }: {
+  id: string;
+  prompt: string;
+  options: { key: string; label: string }[];
+  answer?: string;
+  explanation?: string;
+}) {
+  const choice = usePresentationStore((state) => state.audienceChoices[id]);
+  const revealed = usePresentationStore((state) => state.revealedAnswers.includes(id));
+  const setChoice = usePresentationStore((state) => state.setAudienceChoice);
+  const reveal = usePresentationStore((state) => state.revealPollAnswer);
+  const reset = usePresentationStore((state) => state.resetPoll);
+  return (
+    <section className="audience-poll" aria-label={prompt}>
+      <h2>{prompt}</h2>
+      <div className="poll-options" role="group" aria-label="Chọn một phương án">
+        {options.map((option) => (
+          <button type="button" key={option.key} aria-pressed={choice === option.key}
+            className={'poll-option' + (choice === option.key ? ' poll-option--selected' : '') +
+              (revealed && option.key === answer ? ' poll-option--correct' : '')}
+            onClick={() => setChoice(id, option.key)}>
+            <span className="poll-option__key">{option.key}</span><span>{option.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="poll-actions">
+        {choice && <span className="poll-selection" aria-live="polite">Đã ghi nhận lựa chọn của bạn.</span>}
+        {answer && !revealed && <button type="button" className="text-action" onClick={() => reveal(id)}>Hiện phân tích</button>}
+        {(choice || revealed) && <button type="button" className="text-action text-action--quiet" onClick={() => reset(id)}>Đặt lại</button>}
+      </div>
+      {revealed && explanation && <p className="poll-explanation" aria-live="polite"><strong>Phương án B.</strong> {explanation}</p>}
+    </section>
+  );
+}
+
+function SlideView({ scene, sceneBeat }: { scene: SceneDefinition; sceneBeat: number }) {
+  switch (scene.id) {
+    case 'opening':
+      return <Frame scene={scene} className="scene-layout--opening" visual={<Artifact id="globe" label="Hành trình" note="Đạo cụ 3D mang tính minh họa" />}>
+        <p className="body-lead">Hành trình tìm đường cứu nước của Nguyễn Ái Quốc</p>
+        <p className="analysis-line">Có lòng yêu nước đã đủ để tìm ra con đường cứu nước hay chưa?</p>
+        <Poll id="opening" prompt="Nếu là thanh niên Việt Nam năm 1911, bạn chọn hướng nào?" options={[
+          { key: 'A', label: 'Tìm sự giúp đỡ từ một nước châu Á' },
+          { key: 'B', label: 'Cải cách xã hội và giáo dục' },
+          { key: 'C', label: 'Sang phương Tây để khảo nghiệm thực tế' },
+        ]} />
+      </Frame>;
+    case 'crossroads':
+      return <Frame scene={scene} className="scene-layout--crossroads" visual={<Artifact id="crossroads" label="Khủng hoảng phương hướng" note="Đầu thế kỷ XX" />}>
+        <p className="body-lead">Đầu thế kỷ XX có những khuynh hướng phong kiến và dân chủ tư sản với chiến lược khác nhau; câu hỏi về con đường giành độc lập vẫn chưa có lời giải.</p>
+        <div className="pathways" aria-label="Các hướng tìm đường cứu nước">
+          <div className="pathway"><span>01</span><strong>Khuynh hướng phong kiến</strong><small>Khôi phục quyền tự chủ theo những cách khác nhau</small></div>
+          <div className="pathway"><span>02</span><strong>Khuynh hướng dân chủ tư sản</strong><small>Canh tân, dân quyền và cải cách xã hội</small></div>
+          <div className="pathway pathway--selected"><span>03</span><strong>Tìm hướng mới</strong><small>Khảo nghiệm trực tiếp, so sánh rồi lựa chọn</small></div>
+        </div>
+        <p className="analysis-line">Lòng yêu nước xác định mục tiêu; lực lượng, phương pháp và tổ chức vẫn cần được tìm lời giải.</p>
+      </Frame>;
+    case 'departure':
+      return <Frame scene={scene} className="scene-layout--departure" visual={<>
+        <Artifact id="compass" label="La bàn" note="Đạo cụ minh họa" />
+        <Artifact id="ship-wheel" label="Bánh lái" note="Không phải hiện vật lịch sử" />
+      </>}>
+        <p className="body-lead">Ngày 5/6/1911, Nguyễn Tất Thành rời Sài Gòn trên tàu <em>Amiral Latouche-Tréville</em>.</p>
+        <div className="route-line"><span><strong>Sài Gòn</strong><small>5/6/1911</small></span><i aria-hidden="true" /><span><strong>Phương Tây</strong><small>khảo nghiệm trực tiếp</small></span></div>
+        <p className="analysis-line">Không nhận sẵn một đáp án: đi, quan sát thế giới, so sánh và rồi lựa chọn.</p>
+      </Frame>;
+    case 'world-journey':
+      return <Frame scene={scene} className="scene-layout--world-journey" visual={<Artifact id="globe" label="Quan sát thế giới" note="Không phải tuyến đường theo từng chặng" />}>
+        <p className="body-lead">Trải nghiệm lao động và đời sống ở nhiều nơi mở rộng câu hỏi vượt khỏi phạm vi một quốc gia.</p>
+        <div className="observation-chain"><span>Đời sống xã hội</span><i /><span>Người lao động</span><i /><span>Các dân tộc thuộc địa</span></div>
+        <p className="analysis-line">Từ “Làm thế nào giải phóng Việt Nam?” đến việc nhận ra một vấn đề thuộc địa rộng hơn.</p>
+      </Frame>;
+    case 'paris-1919':
+      return <Frame scene={scene} className="scene-layout--paris" visual={<>
+        <img className="historical-document" src="/assets/images/petition-1919.jpg" alt="Bản Yêu sách của nhân dân An Nam năm 1919" />
+        <Artifact id="typewriter" label="Máy chữ" note="Đạo cụ minh họa" />
+      </>}>
+        <p className="body-lead">Nguyễn Ái Quốc dùng một diễn đàn quốc tế để nêu các yêu cầu về quyền và cải cách.</p>
+        <div className="petition-facts"><strong>8</strong><span>điểm yêu sách</span><p>Tự do báo chí · ngôn luận · lập hội · cải cách pháp lý · quyền đại diện</p></div>
+        <p className="analysis-line">Hoạt động chính trị công khai; văn bản không yêu cầu độc lập tức thời.</p>
+      </Frame>;
+    case 'theses-1920':
+      return <Frame scene={scene} className="scene-layout--theses" visual={<Artifact id="clasp-book" label="Văn kiện tư liệu" note="Đạo cụ minh họa, không phải bản gốc" />}>
+        <p className="body-lead">Ngày 16–17/7/1920, <em>L’Humanité</em> đăng Luận cương của V.I. Lênin về vấn đề dân tộc và thuộc địa.</p>
+        <div className="theses-terms"><span>Dân tộc bị áp bức</span><i /><span>Phong trào cách mạng</span><i /><span>Đoàn kết quốc tế</span></div>
+        <blockquote className="historical-quote">“Lúc đầu, chính là chủ nghĩa yêu nước, chứ chưa phải chủ nghĩa cộng sản…”<cite>Hồ Chí Minh, “Con đường dẫn tôi đến chủ nghĩa Lênin”</cite></blockquote>
+        {sceneBeat > 0 && <Poll id="theses-1920" prompt="Vì sao Luận cương tạo bước ngoặt?" options={[
+          { key: 'A', label: 'Trình bày mô hình phát triển kinh tế phương Tây' },
+          { key: 'B', label: 'Trực tiếp đề cập dân tộc thuộc địa và lực lượng giải phóng' },
+          { key: 'C', label: 'Kêu gọi thuộc địa chờ các nước lớn giúp đỡ' },
+        ]} answer="B" explanation="Văn kiện đặt cuộc đấu tranh của các dân tộc bị áp bức trong chiến lược của phong trào cách mạng quốc tế." />}
+        <p className="analysis-line">Yêu nước tạo động lực và câu hỏi; lý luận trở thành hệ quy chiếu được lựa chọn để trả lời.</p>
+      </Frame>;
+    case 'tours-1920':
+      return <Frame scene={scene} className="scene-layout--tours" visual={<img className="historical-document historical-document--tours" src="/assets/images/tours-1920.jpg" alt="Đại hội Đảng Xã hội Pháp tại Tours, tháng 12 năm 1920" />}>
+        <p className="body-lead">Tại Đại hội Tours, Nguyễn Ái Quốc bỏ phiếu tán thành gia nhập Quốc tế Cộng sản.</p>
+        <div className="decision-line"><span>Nhận thức</span><i /><span>Lựa chọn</span><i /><span>Hành động</span></div>
+        <p className="analysis-line">Năm 1920 là bước ngoặt về chất, không phải điểm kết thúc của quá trình học tập và hoạt động.</p>
+      </Frame>;
+    case 'synthesis': {
+      const steps = ['Yêu nước', 'Đặt câu hỏi', 'Khảo nghiệm thế giới', 'Kiểm nghiệm tư tưởng', 'Tiếp nhận lý luận', 'Trở lại hoạt động thực tiễn'];
+      const visibleCount = Math.min(steps.length, (sceneBeat + 1) * 2);
+      return <Frame scene={scene} className="scene-layout--synthesis">
+        <p className="body-lead">Lòng yêu nước tiếp tục là động lực; nhận thức về lực lượng, phương pháp và tổ chức trở nên có hệ thống hơn.</p>
+        <div className="comparison-wrap"><table className="comparison-table">
+          <thead><tr><th scope="col">Phương diện</th><th scope="col">Trước bước ngoặt</th><th scope="col">Sau bước ngoặt 1920</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Động lực</th><td>Yêu nước</td><td>Yêu nước tiếp tục là động lực</td></tr>
+            <tr><th scope="row">Câu hỏi</th><td>Cứu nước bằng cách nào?</td><td>Có hệ quy chiếu lý luận để giải thích</td></tr>
+            <tr><th scope="row">Phạm vi</th><td>Vấn đề Việt Nam</td><td>Việt Nam trong phong trào thuộc địa và quốc tế</td></tr>
+            <tr><th scope="row">Hướng hành động</th><td>Tìm kiếm phương hướng</td><td>Xác định rõ hơn lực lượng, tổ chức, phương pháp</td></tr>
+          </tbody>
+        </table></div>
+        <div className="synthesis-process"><span className="field-label">Diễn giải của nhóm</span><ol>
+          {steps.map((step, index) => <li className={index < visibleCount ? 'is-visible' : ''} key={step}><span>{String(index + 1).padStart(2, '0')}</span>{step}</li>)}
+        </ol></div>
+        <p className="analysis-line">Thực tiễn đặt vấn đề → lý luận giải thích → thực tiễn tiếp tục kiểm nghiệm nhận thức.</p>
+      </Frame>;
+    }
+    case 'after-1920':
+      return <Frame scene={scene} className="scene-layout--after-1920" visual={<Artifact id="press" label="Truyền bá và chuẩn bị" note="Mô hình máy in là minh họa" />}>
+        <p className="body-lead">Sau khi lựa chọn, trọng tâm chuyển dần từ tìm đường sang truyền bá và tổ chức lực lượng.</p>
+        <div className="timeline-flow"><div><strong>1920</strong><span>Lựa chọn tư tưởng</span></div><i /><div><strong>1921–1929</strong><span>Truyền bá, chuẩn bị</span></div><i /><div><strong>1930</strong><span>Thành lập Đảng</span></div></div>
+        <p className="analysis-line">1911–1920 chủ yếu là tìm đường; 1921–1930 là chuẩn bị và tổ chức thực hiện lựa chọn ấy.</p>
+      </Frame>;
+    case 'application':
+      return <Frame scene={scene} className="scene-layout--application">
+        <p className="body-lead">Hội nhập rộng đòi hỏi năng lực tự chủ và chọn lọc.</p>
+        <div className="trade-figure"><strong>930,05</strong><span>tỷ USD · tổng kim ngạch hàng hóa năm 2025</span></div>
+        <div className="trade-bars" role="img" aria-label="Xuất khẩu 475,04 tỷ USD; nhập khẩu 455,01 tỷ USD">
+          <div><span>Xuất khẩu</span><strong>475,04 tỷ USD</strong><i><b style={{ width: '100%' }} /></i></div>
+          <div><span>Nhập khẩu</span><strong>455,01 tỷ USD</strong><i><b style={{ width: '95.8%' }} /></i></div>
+        </div>
+        <p className="stat-source">Ước tính năm 2025 · Khu vực FDI chiếm 77,3% giá trị xuất khẩu</p>
+        <p className="analysis-line">Tìm hiểu → chọn lọc → kiểm chứng → vận dụng. Số liệu hiện nay minh họa bối cảnh, không chứng minh lịch sử năm 1920.</p>
+        <p className="student-example">Với sinh viên: kiểm chứng nguồn và bối cảnh trước khi dùng thông tin từ Internet hoặc AI.</p>
+      </Frame>;
+    case 'conclusion':
+      return <Frame scene={scene} className="scene-layout--conclusion" visual={<Artifact id="lotus" label="Động lực · phương pháp · lý luận" note="Hoa sen là hình tượng trang trí" />}>
+        <p className="body-lead">Nguyễn Ái Quốc bắt đầu bằng lòng yêu nước, đi tìm lời giải qua thực tiễn, lựa chọn chủ nghĩa Mác – Lênin và tiếp tục kiểm nghiệm lựa chọn trong hoạt động chính trị.</p>
+        <div className="conclusion-chain"><span><strong>Yêu nước</strong><small>Động lực</small></span><i /><span><strong>Khảo nghiệm</strong><small>Phương pháp</small></span><i /><span><strong>Mác – Lênin</strong><small>Lý luận được lựa chọn</small></span><i /><span><strong>Hành động</strong><small>Thực tiễn cách mạng</small></span></div>
+        <p className="closing-question">Một lựa chọn có cơ sở bắt đầu bằng câu hỏi đúng, tiếp xúc với thực tiễn và kiểm chứng tri thức.</p>
+        <p className="thanks">Xin cảm ơn thầy cô và các bạn.</p>
+      </Frame>;
+    default:
+      return null;
+  }
+}
+
+export function SceneContent({ scene, sceneIndex, sceneBeat }: {
   scene: SceneDefinition;
   sceneIndex: number;
   sceneBeat: number;
-}
-
-function SourceRow({ scene }: { scene: SceneDefinition }) {
-  if (!scene.sourceIds.length) return null;
+}) {
   return (
-    <div className="scene-source-row">
-      {scene.sourceIds.map((id) => (
-        <SourceBadge key={id} sourceId={id} />
-      ))}
-    </div>
-  );
-}
-
-function Opening({ scene }: { scene: SceneDefinition }) {
-  return (
-    <div className="scene-layout scene-layout--opening">
-      <div className="opening-copy">
-        <p className="eyebrow reveal-item">
-          ĐỀ TÀI THUYẾT TRÌNH MÔN TƯ TƯỞNG HỒ CHÍ MINH <span className="eyebrow-rule" /> NHÓM 1
-        </p>
-        <h1 className="display-title reveal-item">
-          <span className="poster-gold-kicker">HÀNH TRÌNH HỒ CHÍ MINH</span>
-          <br />
-          <span className="poster-crimson-core">
-            CHUYỂN HÓA TƯ TƯỞNG VỀ QUYỀN CON NGƯỜI
-            <br />
-            THÀNH QUYỀN TỰ QUYẾT CỦA MỘT DÂN TỘC
-          </span>
-        </h1>
-        <p className="opening-subtitle reveal-item">
-          Từ chủ nghĩa yêu nước đến chủ nghĩa Mác — Lênin và con đường giải phóng dân tộc
-        </p>
-        <div className="scene-footer reveal-item">
-          <span className="footer-mark">CHƯƠNG 01</span>
-          <span className="footer-line" />
-          <span>1911 — 1920</span>
-          <span className="footer-line" />
-          <span className="footer-mark">ĐỘC LẬP · TỰ QUYẾT</span>
-        </div>
-        <SourceRow scene={scene} />
-      </div>
-      <div className="opening-orbit-label reveal-item">
-        <span className="orbit-dot" /> SÀI GÒN <span>·</span> 5 CHÂU 4 BIỂN <span>·</span> PARIS <span>·</span> 1945
-      </div>
-    </div>
-  );
-}
-
-function CentralQuestion({ scene }: { scene: SceneDefinition }) {
-  return (
-    <div className="scene-layout scene-layout--center">
-      <p className="eyebrow reveal-item">MỘT CÂU HỎI XUYÊN SUỐT</p>
-      <h1 className="question-title reveal-item">
-        Nếu lòng yêu nước là điểm khởi đầu,
-        <br className="desktop-break" /> điều gì giúp một người tìm được
-        <br className="desktop-break" /> con đường cứu nước đúng đắn?
-      </h1>
-      <div className="three-words reveal-item">
-        <div className="three-word-item">
-          <span className="word-num">01</span>
-          <strong>YÊU NƯỚC</strong>
-        </div>
-        <i className="word-separator" />
-        <div className="three-word-item">
-          <span className="word-num">02</span>
-          <strong>THỰC TIỄN</strong>
-        </div>
-        <i className="word-separator" />
-        <div className="three-word-item">
-          <span className="word-num">03</span>
-          <strong>LÝ LUẬN</strong>
-        </div>
-      </div>
-      <p className="quiet-note reveal-item">Ba yếu tố quyết định bước chuyển tư tưởng lịch sử.</p>
-      <SourceRow scene={scene} />
-    </div>
-  );
-}
-
-function Crossroads({ scene }: { scene: SceneDefinition }) {
-  const panels = [
-    {
-      label: '01 / KHUYNH HƯỚNG PHONG KIẾN',
-      title: 'Phong trào Cần Vương',
-      detail: 'Tận trung cứu nước nhưng bế tắc về hệ tư tưởng và ngọn cờ giải phóng.',
-    },
-    {
-      label: '02 / KHUYNH HƯỚNG TƯ SẢN',
-      title: 'Đông Du · Duy Tân',
-      detail: 'Đổi mới nhưng còn phụ thuộc vào ngoại lực hoặc cải lương trong khuôn khổ.',
-    },
-    {
-      label: '03 / HƯỚNG ĐI MỚI',
-      title: 'Khảo nghiệm thế giới',
-      detail: 'Tìm hiểu ngọn nguồn tự do, bình đẳng tại chính các mẫu quốc phương Tây.',
-    },
-  ];
-  return (
-    <div className="scene-layout scene-layout--crossroads">
-      <div className="section-heading reveal-item">
-        <p className="eyebrow">BỐI CẢNH TRƯỚC NĂM 1911</p>
-        <h1 className="serif-heading">
-          Đầu thế kỷ XX:
-          <br />
-          Khủng hoảng sâu sắc về đường lối cứu nước
-        </h1>
-        <p className="body-lead">
-          Các cuộc khởi nghĩa và phong trào yêu nước liên tiếp nổ ra nhưng đều lâm vào bế tắc. Dân tộc đòi hỏi một con đường hoàn toàn mới.
-        </p>
-      </div>
-      <div className="archive-panels">
-        {panels.map((panel, index) => (
-          <article className={`archive-panel archive-panel--${index + 1} reveal-item`} key={panel.label}>
-            <span>{panel.label}</span>
-            <strong>{panel.title}</strong>
-            <small>{panel.detail}</small>
-            <i aria-hidden="true" />
-          </article>
-        ))}
-      </div>
-      <div className="analysis-caption reveal-item">
-        <span className="analysis-caption__line" />
-        BỐI CẢNH LỊCH SỬ · ĐIỂM XUẤT PHÁT CỦA SỰ TÌM ĐƯỜNG
-        <SourceRow scene={scene} />
-      </div>
-      <div className="crossroads-question reveal-item">
-        “Tôi muốn đi ra nước ngoài, xem nước Pháp và các nước khác.
-        <br />
-        Sau khi xem xét họ làm như thế nào, tôi sẽ trở về giúp đồng bào chúng ta.”
-      </div>
-    </div>
-  );
-}
-
-function Departure({ scene }: { scene: SceneDefinition }) {
-  const entry = getHistoricalEntry('departure-1911');
-  return (
-    <div className="scene-layout scene-layout--departure">
-      <div className="date-ghost" aria-hidden="true">
-        1911
-      </div>
-      <div className="departure-copy">
-        <p className="eyebrow reveal-item">
-          {entry?.date} <span className="eyebrow-rule" /> BẾN CẢNG NHÀ RỒNG · SÀI GÒN
-        </p>
-        <h1 className="serif-heading reveal-item">
-          Ra đi tìm đường
-          <br />
-          cứu nước.
-        </h1>
-        <p className="body-lead reveal-item">
-          Người thanh niên Nguyễn Tất Thành bước lên tàu Amiral Latouche-Tréville với tên gọi Văn Ba, bắt đầu cuộc hành trình vĩ đại kéo dài 30 năm qua 3 đại dương và 4 châu lục.
-        </p>
-        <div className="departure-caption reveal-item">
-          <span className="caption-rule" />
-          TÀU AMIRAL LATOUCHE-TRÉVILLE <span className="caption-dot" /> BẾN CẢNG NHÀ RỒNG
-        </div>
-        <SourceRow scene={scene} />
-      </div>
-      <div className="water-index reveal-item">
-        <span>SÀI GÒN · VIỆT NAM</span>
-        <i />
-        <span>HÀNH TRÌNH KHỞI ĐẦU · 1911</span>
-      </div>
-    </div>
-  );
-}
-
-function WorldJourney({ sceneBeat, scene }: { sceneBeat: number; scene: SceneDefinition }) {
-  const steps = [
-    { title: 'TRẢI NGHIỆM', desc: 'Lao động và sinh sống cùng nhân dân lao động nhiều nước.' },
-    { title: 'QUAN SÁT', desc: 'Thấy rõ bản chất bóc lột của chủ nghĩa thực dân ở khắp các thuộc địa.' },
-    { title: 'ĐỐI CHIẾU', desc: 'So sánh các cuộc cách mạng tư sản Pháp, Mỹ với thực tiễn thuộc địa.' },
-    { title: 'NHẬN THỨC', desc: 'Nhân dân lao động ở đâu cũng bị áp bức; kẻ thù là chủ nghĩa thực dân.' },
-  ];
-  const current = Math.min(sceneBeat, steps.length - 1);
-  return (
-    <div className="scene-layout scene-layout--journey">
-      <div className="journey-heading reveal-item">
-        <p className="eyebrow">1911 — 1919 <span className="eyebrow-rule" /> THỰC TIỄN TOÀN CẦU</p>
-        <h1 className="serif-heading">
-          Khảo nghiệm thế giới
-          <br />
-          bằng thực tiễn lao động
-        </h1>
-        <p className="body-lead">
-          Không chỉ qua sách vở, Nguyễn Ái Quốc thấu hiểu thế giới qua chính cuộc sống của người lao động tại Á, Âu, Phi và châu Mỹ.
-        </p>
-      </div>
-      <div className="journey-steps">
-        {steps.map((step, index) => (
-          <div
-            className={`journey-step reveal-item ${index === current ? 'journey-step--active' : ''} ${
-              index < current ? 'journey-step--passed' : ''
-            }`}
-            key={step.title}
-          >
-            <span className="journey-step__index">0{index + 1}</span>
-            <strong>{step.title}</strong>
-            <p className="journey-step__desc">{step.desc}</p>
-            {index < steps.length - 1 && <i aria-hidden="true" />}
-          </div>
-        ))}
-      </div>
-      <div className="journey-side-note reveal-item">
-        <span>HÀNH TRÌNH QUA 3 ĐẠI DƯƠNG</span>
-        <p>Pháp · Anh · Mỹ · Châu Phi · Châu Á</p>
-        <small>Nhấn Space để tiếp tục hành trình</small>
-      </div>
-      <SourceRow scene={scene} />
-    </div>
-  );
-}
-
-function Paris1919({ scene }: { scene: SceneDefinition }) {
-  const entry = getHistoricalEntry('petition-1919');
-  return (
-    <div className="scene-layout scene-layout--document">
-      <div className="document-copy reveal-item">
-        <p className="eyebrow">
-          {entry?.date} <span className="eyebrow-rule" /> HỘI NGHỊ VERSAILLES · PARIS
-        </p>
-        <h1 className="serif-heading">
-          Yêu sách của
-          <br />
-          Nhân dân An Nam
-        </h1>
-        <p className="body-lead">{entry?.statement}</p>
-        <div className="document-keywords">
-          <span>QUYỀN TỰ DO DÂN CHỦ</span>
-          <span>BÌNH ĐẲNG PHÁP LÝ</span>
-          <span>QUYỀN CON NGƯỜI</span>
-        </div>
-        <SourceRow scene={scene} />
-      </div>
-      <div className="document-label reveal-item">
-        <span>VĂN KIỆN LỊCH SỬ / 1919</span>
-        <i />
-        <small>Bản Yêu sách 8 điểm ký tên Nguyễn Ái Quốc</small>
-      </div>
-      <div className="question-break reveal-item">
-        <span>BÀI HỌC THỰC TIỄN QUAN TRỌNG</span>
-        <p>
-          Các cường quốc tư sản không bao giờ tự nguyện trao quyền tự quyết cho thuộc địa. Muốn giải phóng dân tộc, chỉ có thể dựa vào chính sức mình.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function Theses1920({ scene, sceneBeat }: { scene: SceneDefinition; sceneBeat: number }) {
-  const entry = getHistoricalEntry('theses-1920');
-  return (
-    <div className="scene-layout scene-layout--theses">
-      <div className="theses-copy reveal-item">
-        <p className="eyebrow">
-          {entry?.date} <span className="eyebrow-rule" /> BÁO L’HUMANITÉ · PARIS
-        </p>
-        <h1 className="serif-heading">
-          Sơ thảo Luận cương
-          <br />
-          về vấn đề dân tộc
-          <br />
-          và thuộc địa
-        </h1>
-        <p className="theses-attribution">V.I. Lênin <span>·</span> Đăng trên báo Nhân đạo Pháp</p>
-        <p className="body-lead">{entry?.statement}</p>
-        <blockquote className="theses-quote">
-          “Luận cương của Lênin làm cho tôi rất cảm động, phấn khởi, sáng tỏ, tin tưởng biết bao! Tôi vui mừng đến phát khóc lên... Đây là cái cần thiết cho chúng ta, đây là con đường giải phóng chúng ta.”
-        </blockquote>
-        <SourceRow scene={scene} />
-      </div>
-      <div className="theses-terms" aria-live="polite">
-        {sceneBeat === 0 ? (
-          <div className="term-question reveal-item">
-            <span>BƯỚC NGOẶT NHẬN THỨC</span>
-            <p>Luận cương Lênin đã chỉ rõ mối quan hệ mật thiết giữa cách mạng vô sản ở chính quốc và cách mạng giải phóng dân tộc ở thuộc địa.</p>
-            <small>Nhấn Space để mở các trụ cột tư tưởng</small>
-          </div>
-        ) : (
-          <>
-            {[
-              { num: '01', title: 'QUYỀN TỰ QUYẾT DÂN TỘC', sub: 'Mọi dân tộc đều bình đẳng' },
-              { num: '02', title: 'LIÊN MINH VÔ SẢN', sub: 'Chính quốc gắn kết thuộc địa' },
-              { num: '03', title: 'CON ĐƯỜNG CÁCH MẠNG', sub: 'Giải phóng dân tộc triệt để' },
-            ].map((term, index) => (
-              <div className="thesis-term reveal-item" key={term.title} style={{ '--term-index': index } as CSSProperties}>
-                <span>{term.num}</span>
-                <strong>{term.title}</strong>
-                <small>{term.sub}</small>
-              </div>
-            ))}
-            <p className="theses-analysis reveal-item">
-              QUYỀN CON NGƯỜI <i /> QUYỀN TỰ QUYẾT <i /> ĐỘC LẬP TỰ DO
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Tours1920({ scene }: { scene: SceneDefinition }) {
-  const entry = getHistoricalEntry('tours-1920');
-  return (
-    <div className="scene-layout scene-layout--tours">
-      <p className="eyebrow reveal-item">
-        ĐẠI HỘI LẦN THỨ XVIII <span className="eyebrow-rule" /> ĐẢNG XÃ HỘI PHÁP TẠI TOURS
-      </p>
-      <div className="tours-title reveal-item">
-        <h1>ĐẠI HỘI TOURS</h1>
-        <span>{entry?.date}</span>
-      </div>
-      <p className="tours-description reveal-item">
-        Từ tiếp cận lý luận đến một lựa chọn chính trị dứt khoát:
-        <br />
-        Bỏ phiếu gia nhập Quốc tế III và tham gia sáng lập Đảng Cộng sản Pháp
-      </p>
-      <div className="tours-fact reveal-item">
-        <span>12.1920</span>
-        <p>
-          Khẳng định con đường giải phóng dân tộc gắn liền với chủ nghĩa xã hội. Nguyễn Ái Quốc trở thành người cộng sản Việt Nam đầu tiên.
-        </p>
-      </div>
-      <SourceRow scene={scene} />
-    </div>
-  );
-}
-
-const synthesisNodes = [
-  { num: '01', title: 'CHỦ NGHĨA YÊU NƯỚC', desc: 'Động lực nguyên thủy sâu sắc của dân tộc' },
-  { num: '02', title: 'NHU CẦU TÌM ĐƯỜNG MỚI', desc: 'Khát vọng vượt qua bế tắc thời đại' },
-  { num: '03', title: 'KHẢO NGHIỆM THỰC TIỄN', desc: 'Hành trình 10 năm qua 4 châu lục' },
-  { num: '04', title: 'ĐỐI CHIẾU CÁC CON ĐƯỜNG', desc: 'Thấy rõ giới hạn của cách mạng tư sản' },
-  { num: '05', title: 'TIẾP CẬN LUẬN CƯƠNG LÊNIN', desc: 'Gặp gỡ chân lý cách mạng vô sản' },
-  { num: '06', title: 'LỰA CHỌN CON ĐƯỜNG GIẢI PHÓNG', desc: 'Độc lập dân tộc gắn liền CNXH' },
-];
-
-function Synthesis({ sceneBeat }: { sceneBeat: number }) {
-  return (
-    <div className="scene-layout scene-layout--synthesis">
-      <div className="synthesis-heading reveal-item">
-        <p className="eyebrow">
-          SƠ ĐỒ TỔNG HỢP BIỆN CHỨNG <span className="eyebrow-rule" /> QUY LUẬT CHUYỂN HÓA
-        </p>
-        <h1 className="serif-heading">
-          Từ chủ nghĩa yêu nước
-          <br />
-          đến lựa chọn lý luận khoa học
-        </h1>
-      </div>
-      <div className="synthesis-track">
-        {synthesisNodes.map((node, index) => (
-          <div
-            className={`synthesis-node reveal-item ${index === sceneBeat ? 'synthesis-node--active' : ''} ${
-              index < sceneBeat ? 'synthesis-node--passed' : ''
-            }`}
-            key={node.title}
-          >
-            <span className="synthesis-node__dot">{node.num}</span>
-            <strong>{node.title}</strong>
-            <small>{node.desc}</small>
-          </div>
-        ))}
-      </div>
-      <div className="synthesis-takeaway reveal-item">
-        <span>KẾT LUẬN CỦA NHÓM</span>
-        <p>
-          Đây là bước phát triển nhảy vọt về chất trong tư tưởng Nguyễn Ái Quốc: chuyển hóa từ ý thức hệ phong kiến, tư sản sang lập trường cách mạng vô sản.
-        </p>
-      </div>
-      <div className="synthesis-step reveal-item">
-        DÙNG SPACE HOẶC PHÍM MŨI TÊN ĐỂ ĐI QUA TỪNG MẮT XÍCH <span>0{sceneBeat + 1} / 06</span>
-      </div>
-    </div>
-  );
-}
-
-function Reflection({ sceneBeat }: { sceneBeat: number }) {
-  const seconds = usePresentationStore((state) => state.reflectionSeconds);
-  const start = usePresentationStore((state) => state.startReflectionTimer);
-  const timerRunning = usePresentationStore((state) => state.timerRunning);
-  return (
-    <div className="scene-layout scene-layout--reflection">
-      <div className="reflection-mark reveal-item">
-        <span>GÓC SUY NGẪM &amp; THẢO LUẬN</span>
-        <i />
-      </div>
-      {sceneBeat < 2 ? (
-        <>
-          <h1 className="reflection-question reveal-item">
-            Nếu chỉ có lòng yêu nước mà thiếu quá trình khảo nghiệm thực tiễn và tiếp cận lý luận Mác – Lênin, liệu hành trình giải phóng dân tộc có thể thành công?
-          </h1>
-          <div className="reflection-action reveal-item">
-            {seconds > 0 ? (
-              <>
-                <div className={`timer-ring ${timerRunning ? 'timer-ring--running' : ''}`}>
-                  <span>{String(seconds).padStart(2, '0')}</span>
-                  <small>GIÂY</small>
-                </div>
-                <div>
-                  <p>Trao đổi cùng bạn bên cạnh trong 20 giây.</p>
-                  <button className="text-control" type="button" onClick={start}>
-                    {timerRunning ? 'ĐỒNG HỒ ĐANG ĐẾM LÙI...' : 'BẤM T HOẶC NHẤN VÀO ĐÂY ĐỂ BẮT ĐẦU 20S'}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="reflection-share">
-                <span>20 GIÂY THẢO LUẬN HOÀN TẤT</span>
-                <p>Mời đại diện nhóm chia sẻ ý kiến ngắn</p>
-                <small>Nhấn Space để kết nối ba nhân tố</small>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="reflection-payoff reveal-item">
-          <p className="eyebrow">BA NHÂN TỐ QUYẾT ĐỊNH ĐÃ HÒA QUYỆN</p>
-          <div className="three-words three-words--connected">
-            <span>YÊU NƯỚC</span>
-            <i />
-            <span>THỰC TIỄN</span>
-            <i />
-            <span>LÝ LUẬN</span>
-          </div>
-          <p className="quiet-note">
-            Chủ nghĩa yêu nước là ngọn nguồn; Thực tiễn là phép thử; Chủ nghĩa Mác – Lênin là kim chỉ nam.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Conclusion({ scene }: { scene: SceneDefinition }) {
-  return (
-    <div className="scene-layout scene-layout--conclusion">
-      <div className="conclusion-copy">
-        <p className="eyebrow reveal-item">
-          HÀNH TRÌNH TƯ TƯỞNG HỒ CHÍ MINH <span className="eyebrow-rule" /> 1911 — 1945
-        </p>
-        <h1 className="serif-heading reveal-item">
-          Từ một hành trình địa lý
-          <br />
-          đến quyền tự quyết của cả dân tộc
-        </h1>
-        <p className="body-lead reveal-item">
-          Ngày 2/9/1945 tại Quảng trường Ba Đình lịch sử, Chủ tịch Hồ Chí Minh đọc bản Tuyên ngôn Độc lập, khai sinh nước Việt Nam Dân chủ Cộng hòa, hiện thực hóa quyền con người thành quyền tự quyết thiêng liêng của một dân tộc độc lập, tự do.
-        </p>
-        <div className="final-sequence reveal-item">
-          <span>YÊU NƯỚC</span>
-          <i />
-          <span>KHẢO NGHIỆM</span>
-          <i />
-          <span>LUẬN CƯƠNG LÊNIN</span>
-          <i />
-          <span>ĐẢNG CỘNG SẢN</span>
-          <i />
-          <span>1945 ĐỘC LẬP TỰ QUYẾT</span>
-        </div>
-        <p className="thanks reveal-item">Xin trân trọng cảm ơn Thầy Cô và các bạn!</p>
-        <SourceRow scene={scene} />
-      </div>
-      <div className="conclusion-orbit reveal-item">
-        <span>1911</span>
-        <i />
-        <span>1945</span>
-      </div>
-    </div>
-  );
-}
-
-export function SceneContent({ scene, sceneIndex, sceneBeat }: SceneContentProps) {
-  const view = (() => {
-    switch (scene.id) {
-      case 'opening':
-        return <Opening scene={scene} />;
-      case 'question':
-        return <CentralQuestion scene={scene} />;
-      case 'crossroads':
-        return <Crossroads scene={scene} />;
-      case 'departure':
-        return <Departure scene={scene} />;
-      case 'world-journey':
-        return <WorldJourney sceneBeat={sceneBeat} scene={scene} />;
-      case 'paris-1919':
-        return <Paris1919 scene={scene} />;
-      case 'theses-1920':
-        return <Theses1920 scene={scene} sceneBeat={sceneBeat} />;
-      case 'tours-1920':
-        return <Tours1920 scene={scene} />;
-      case 'synthesis':
-        return <Synthesis sceneBeat={sceneBeat} />;
-      case 'reflection':
-        return <Reflection sceneBeat={sceneBeat} />;
-      case 'conclusion':
-        return <Conclusion scene={scene} />;
-      default:
-        return null;
-    }
-  })();
-  return (
-    <section className={`scene-content scene-content--${scene.id}`} aria-label={`Cảnh ${scene.number}: ${scene.eyebrow}`}>
-      <div className="scene-content__inner">{view}</div>
-      <div className="scene-time">
-        <span>{scene.number}</span>
-        <i />
-        {formatDuration(scene.durationSeconds)}
-      </div>
-      <span className="scene-index-quiet">{String(sceneIndex + 1).padStart(2, '0')} / 11</span>
+    <section className={'scene-content scene-content--' + scene.id} aria-label={'Cảnh ' + scene.number + ': ' + scene.title} data-scene-index={sceneIndex}>
+      <div className="scene-content__inner"><SlideView scene={scene} sceneBeat={sceneBeat} /></div>
     </section>
   );
 }

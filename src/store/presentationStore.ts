@@ -16,8 +16,8 @@ interface PresentationState {
   showOverview: boolean;
   showNavigation: boolean;
   reducedMotion: boolean;
-  timerRunning: boolean;
-  reflectionSeconds: number;
+  audienceChoices: Record<string, string>;
+  revealedAnswers: string[];
   start: () => void;
   nextScene: () => void;
   previousScene: () => void;
@@ -32,22 +32,14 @@ interface PresentationState {
   toggleOverview: () => void;
   toggleNavigation: () => void;
   setReducedMotion: (value: boolean) => void;
-  startReflectionTimer: () => void;
-  tickReflectionTimer: () => void;
+  setAudienceChoice: (sceneId: string, choiceId: string) => void;
+  revealPollAnswer: (sceneId: string) => void;
+  resetPoll: (sceneId: string) => void;
   closePanels: () => void;
 }
 
-const beatLimits: Record<string, number> = {
-  'world-journey': 4,
-  'theses-1920': 1,
-  synthesis: 5,
-  reflection: 2,
-};
-
-const resetReflection = { timerRunning: false, reflectionSeconds: 20 };
-
 export const usePresentationStore = create<PresentationState>((set, get) => ({
-  started: false,
+  started: true,
   currentScene: 0,
   previousSceneIndex: 0,
   sceneBeat: 0,
@@ -61,13 +53,13 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
   showOverview: false,
   showNavigation: true,
   reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-  ...resetReflection,
+  audienceChoices: {},
+  revealedAnswers: [],
   start: () => set({ started: true }),
   nextScene: () => {
-    const { currentScene, sceneBeat, reflectionSeconds } = get();
+    const { currentScene, sceneBeat } = get();
     const scene = scenes[currentScene];
-    if (scene.id === 'reflection' && sceneBeat === 0 && reflectionSeconds > 0) return;
-    const beatLimit = beatLimits[scene.id] ?? 0;
+    const beatLimit = scene.beatCount ?? 0;
     if (sceneBeat < beatLimit) {
       set({ sceneBeat: sceneBeat + 1, direction: 1 });
       return;
@@ -78,14 +70,12 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
       currentScene: currentScene + 1,
       sceneBeat: 0,
       direction: 1,
-      ...resetReflection,
     });
   },
   previousScene: () => {
     const { currentScene, sceneBeat } = get();
-    const scene = scenes[currentScene];
     if (sceneBeat > 0) {
-      set({ sceneBeat: sceneBeat - 1, direction: -1, ...(scene.id === 'reflection' ? resetReflection : {}) });
+      set({ sceneBeat: sceneBeat - 1, direction: -1 });
       return;
     }
     if (currentScene <= 0) return;
@@ -93,9 +83,8 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
     set({
       previousSceneIndex: currentScene,
       currentScene: previousScene,
-      sceneBeat: 0,
+      sceneBeat: scenes[previousScene].beatCount ?? 0,
       direction: -1,
-      ...resetReflection,
     });
   },
   goToScene: (index) => {
@@ -106,10 +95,10 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
       currentScene: boundedIndex,
       sceneBeat: 0,
       direction: boundedIndex >= currentScene ? 1 : -1,
-      ...resetReflection,
       showOverview: false,
       showSources: false,
       showAIUsage: false,
+      activeSourceId: null,
     });
   },
   setTransitioning: (value) => set({ isTransitioning: value }),
@@ -119,21 +108,60 @@ export const usePresentationStore = create<PresentationState>((set, get) => ({
     showSources: !state.showSources,
     showAIUsage: false,
     showOverview: false,
+    showPresenterInfo: false,
     activeSourceId: null,
   })),
-  openSource: (activeSourceId) => set({ showSources: true, activeSourceId, showAIUsage: false, showOverview: false }),
-  toggleAIUsage: () => set((state) => ({ showAIUsage: !state.showAIUsage, showSources: false, showOverview: false })),
-  togglePresenterInfo: () => set((state) => ({ showPresenterInfo: !state.showPresenterInfo })),
-  toggleOverview: () => set((state) => ({ showOverview: !state.showOverview, showSources: false, showAIUsage: false })),
+  openSource: (activeSourceId) => set({
+    showSources: true,
+    activeSourceId,
+    showAIUsage: false,
+    showOverview: false,
+    showPresenterInfo: false,
+  }),
+  toggleAIUsage: () => set((state) => ({
+    showAIUsage: !state.showAIUsage,
+    showSources: false,
+    showOverview: false,
+    showPresenterInfo: false,
+    activeSourceId: null,
+  })),
+  togglePresenterInfo: () => set((state) => ({
+    showPresenterInfo: !state.showPresenterInfo,
+    showSources: false,
+    showAIUsage: false,
+    showOverview: false,
+    activeSourceId: null,
+  })),
+  toggleOverview: () => set((state) => ({
+    showOverview: !state.showOverview,
+    showSources: false,
+    showAIUsage: false,
+    showPresenterInfo: false,
+    activeSourceId: null,
+  })),
   toggleNavigation: () => set((state) => ({ showNavigation: !state.showNavigation })),
   setReducedMotion: (value) => set({ reducedMotion: value }),
-  startReflectionTimer: () => set((state) => ({
-    reflectionSeconds: state.reflectionSeconds > 0 ? state.reflectionSeconds : 20,
-    timerRunning: true,
+  setAudienceChoice: (sceneId, choiceId) => set((state) => ({
+    audienceChoices: { ...state.audienceChoices, [sceneId]: choiceId },
   })),
-  tickReflectionTimer: () => set((state) => {
-    const next = Math.max(0, state.reflectionSeconds - 1);
-    return { reflectionSeconds: next, timerRunning: next > 0 };
+  revealPollAnswer: (sceneId) => set((state) => ({
+    revealedAnswers: state.revealedAnswers.includes(sceneId)
+      ? state.revealedAnswers
+      : [...state.revealedAnswers, sceneId],
+  })),
+  resetPoll: (sceneId) => set((state) => {
+    const audienceChoices = { ...state.audienceChoices };
+    delete audienceChoices[sceneId];
+    return {
+      audienceChoices,
+      revealedAnswers: state.revealedAnswers.filter((id) => id !== sceneId),
+    };
   }),
-  closePanels: () => set({ showSources: false, showAIUsage: false, showOverview: false, activeSourceId: null }),
+  closePanels: () => set({
+    showSources: false,
+    showAIUsage: false,
+    showOverview: false,
+    showPresenterInfo: false,
+    activeSourceId: null,
+  }),
 }));

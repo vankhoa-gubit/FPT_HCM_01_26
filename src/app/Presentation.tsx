@@ -1,71 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import {
-  SourcesDrawer,
-  AIUsagePanel,
-  PresenterOverlay,
-  SceneOverview,
-  NavigationHint,
-} from '../components/InfoPanels';
-import {
-  UncleHoPortrait,
-  LotusBlossomArt,
-  HistoricalSkyline,
-  FlowingRedRibbonBanner,
-  GrandPresentationHeader,
-} from '../components/ArtisticDecorations';
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  List,
+  Maximize,
+  Minimize,
+  Sparkles,
+  UserRound,
+} from 'lucide-react';
+import { AIUsagePanel, PresenterOverlay, SceneOverview, SourcesDrawer } from '../components/InfoPanels';
 import { scenes } from '../data/scenes';
 import { useKeyboardNavigation, useSceneNavigation, toggleFullscreen } from '../hooks/useKeyboardNavigation';
-import { useReflectionTimer } from '../hooks/useReflectionTimer';
 import { usePresentationStore } from '../store/presentationStore';
 import { WorldCanvas } from '../three/WorldCanvas';
 import { SceneContent } from '../scenes/SceneContent';
 
 gsap.registerPlugin(useGSAP);
-
-function Preloader() {
-  const start = usePresentationStore((state) => state.start);
-  return (
-    <section className="preloader" aria-label="Màn hình mở đầu thuyết trình">
-      {/* Decorative Artistic Elements */}
-      <UncleHoPortrait />
-      <HistoricalSkyline />
-      <LotusBlossomArt />
-
-      <div className="preloader__center">
-        <GrandPresentationHeader />
-
-        <div className="preloader__timeline-badge">
-          <span>1911</span>
-          <i />
-          <span>HÀNH TRÌNH TƯ TƯỞNG CỨU NƯỚC</span>
-          <i />
-          <span>1945</span>
-        </div>
-
-        <div className="preloader-action-zone">
-          <button className="begin-button" onClick={start} autoFocus>
-            <span>BẮT ĐẦU BUỔI THUYẾT TRÌNH</span>
-            <small>NHẤN ENTER HOẶC CLICK VÀO ĐÂY</small>
-            <span className="begin-arrow" aria-hidden="true">➔</span>
-          </button>
-        </div>
-
-        <div className="preloader-meta-row">
-          <span>11 CẢNH TRÌNH CHIẾU</span>
-          <i />
-          <span>3D TƯ LIỆU ĐẶC BIỆT</span>
-          <i />
-          <span>THỜI LƯỢNG ~17 PHÚT</span>
-        </div>
-      </div>
-
-      {/* Flowing Ribbon at the bottom */}
-      <FlowingRedRibbonBanner currentScene={0} onSelectMilestone={() => { start(); }} />
-    </section>
-  );
-}
 
 function SceneManager() {
   const currentScene = usePresentationStore((state) => state.currentScene);
@@ -83,8 +38,8 @@ function SceneManager() {
     }
     gsap.fromTo(
       items,
-      { autoAlpha: 0, y: 22, clipPath: 'inset(0 0 100% 0)' },
-      { autoAlpha: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.76, stagger: 0.08, ease: 'power3.out', overwrite: true },
+      { autoAlpha: 0, y: 18, clipPath: 'inset(0 0 100% 0)' },
+      { autoAlpha: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.64, stagger: 0.07, ease: 'power3.out', overwrite: true },
     );
   }, { scope: container, dependencies: [currentScene, sceneBeat, reducedMotion], revertOnUpdate: true });
 
@@ -95,146 +50,80 @@ function SceneManager() {
   );
 }
 
-function useActivityVisibility() {
-  const [visible, setVisible] = useState(true);
-  useEffect(() => {
-    let timeout = 0;
-    const onActivity = () => {
-      setVisible(true);
-      window.clearTimeout(timeout);
-      timeout = window.setTimeout(() => setVisible(false), 4500);
-    };
-    window.addEventListener('pointermove', onActivity, { passive: true });
-    window.addEventListener('keydown', onActivity);
-    onActivity();
-    return () => {
-      window.clearTimeout(timeout);
-      window.removeEventListener('pointermove', onActivity);
-      window.removeEventListener('keydown', onActivity);
-    };
-  }, []);
-  return visible;
-}
-
 export function Presentation() {
-  const started = usePresentationStore((state) => state.started);
   const currentScene = usePresentationStore((state) => state.currentScene);
   const showNavigation = usePresentationStore((state) => state.showNavigation);
-  const goToScene = usePresentationStore((state) => state.goToScene);
+  const showPresenterInfo = usePresentationStore((state) => state.showPresenterInfo);
+  const showOverview = usePresentationStore((state) => state.showOverview);
+  const showSources = usePresentationStore((state) => state.showSources);
+  const showAIUsage = usePresentationStore((state) => state.showAIUsage);
+  const isFullscreen = usePresentationStore((state) => state.isFullscreen);
+  const reducedMotion = usePresentationStore((state) => state.reducedMotion);
+  const setReducedMotion = usePresentationStore((state) => state.setReducedMotion);
+  const toggleNavigation = usePresentationStore((state) => state.toggleNavigation);
+  const togglePresenterInfo = usePresentationStore((state) => state.togglePresenterInfo);
+  const toggleOverview = usePresentationStore((state) => state.toggleOverview);
+  const toggleSources = usePresentationStore((state) => state.toggleSources);
+  const toggleAIUsage = usePresentationStore((state) => state.toggleAIUsage);
   const { next, previous } = useSceneNavigation();
-  const activityVisible = useActivityVisibility();
+  const scene = scenes[currentScene];
+  const progress = ((currentScene + 1) / scenes.length) * 100;
+
   useKeyboardNavigation();
-  useReflectionTimer();
 
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => usePresentationStore.getState().setReducedMotion(preference.matches);
+    const onChange = () => setReducedMotion(preference.matches);
     preference.addEventListener('change', onChange);
     return () => preference.removeEventListener('change', onChange);
-  }, []);
+  }, [setReducedMotion]);
 
   return (
-    <main className="presentation-root" data-scene-id={scenes[currentScene].id}>
-      {/* 3D WebGL Canvas with detailed models and warm lighting */}
+    <main className="presentation-root" data-scene-id={scene.id}>
       <WorldCanvas />
-
-      {/* Archival Parchment Texture and Atmospheric Vignette */}
       <div className="archive-photo" aria-hidden="true" />
       <div className="presentation-parchment-base" aria-hidden="true" />
       <div className="presentation-vignette" aria-hidden="true" />
       <div className="presentation-grain" aria-hidden="true" />
 
-      {/* Artistic Artwork Overlays matching reference poster */}
-      <UncleHoPortrait />
-      <HistoricalSkyline />
-      <LotusBlossomArt />
+      <SceneManager />
 
-      {started ? (
-        <>
-          {/* Main Scene Content Container */}
-          <SceneManager />
+      <header className={`presentation-header ${showNavigation ? '' : 'presentation-header--hidden'}`} aria-hidden={!showNavigation} inert={!showNavigation}>
+        <div className="presentation-brand" aria-label="Hành trình tư tưởng">
+          <span className="presentation-brand__seal" aria-hidden="true">★</span>
+          <span className="presentation-brand__copy">
+            <strong>Hành trình tư tưởng</strong>
+            <small>Từ chủ nghĩa yêu nước đến chủ nghĩa Mác – Lênin</small>
+          </span>
+        </div>
+        <nav className="presentation-tools" aria-label="Công cụ trình chiếu">
+          <button className="presentation-icon-button" type="button" onClick={togglePresenterInfo} aria-label="Thông tin người thuyết trình" aria-pressed={showPresenterInfo} title="Ghi chú người thuyết trình · P"><UserRound size={19} /></button>
+          <button className="presentation-icon-button" type="button" onClick={toggleOverview} aria-label="Mục lục các trang" aria-pressed={showOverview} title="Mục lục · O"><List size={20} /></button>
+          <button className="presentation-icon-button" type="button" onClick={toggleSources} aria-label="Nguồn tư liệu" aria-pressed={showSources} title="Nguồn tư liệu · S"><BookOpen size={19} /></button>
+          <button className="presentation-icon-button" type="button" onClick={toggleAIUsage} aria-label="Thông tin sử dụng AI" aria-pressed={showAIUsage} title="Minh bạch AI · A"><Sparkles size={19} /></button>
+          <button className="presentation-icon-button" type="button" onClick={() => setReducedMotion(!reducedMotion)} aria-label={reducedMotion ? 'Tắt giảm chuyển động' : 'Bật giảm chuyển động'} aria-pressed={reducedMotion} title="Giảm chuyển động"><span className="motion-glyph" aria-hidden="true">{reducedMotion ? '◉' : '◌'}</span></button>
+          <button className="presentation-icon-button" type="button" onClick={toggleNavigation} aria-label={showNavigation ? 'Ẩn điều khiển' : 'Hiện điều khiển'} title={showNavigation ? 'Ẩn điều khiển · H' : 'Hiện điều khiển · H'}>{showNavigation ? <Eye size={19} /> : <EyeOff size={19} />}</button>
+          <button className="presentation-icon-button" type="button" onClick={() => { void toggleFullscreen(); }} aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'} title="Toàn màn hình · F">{isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}</button>
+        </nav>
+      </header>
 
-          {/* Left/Right click zones for mouse navigation */}
-          <button className="nav-zone nav-zone--left" aria-label="Cảnh trước" onClick={previous} />
-          <button className="nav-zone nav-zone--right" aria-label="Cảnh tiếp theo" onClick={next} />
+      <footer className={`presentation-footer ${showNavigation ? '' : 'presentation-footer--hidden'}`} aria-hidden={!showNavigation} inert={!showNavigation}>
+        <div className="presentation-footer__chapter">{scene.chapter}</div>
+        <button className="presentation-step-button" type="button" onClick={previous} aria-label="Trang trước" title="Trang trước · ←"><ChevronLeft size={21} /></button>
+        <div className="presentation-progress" role="progressbar" aria-label="Tiến độ trình chiếu" aria-valuemin={1} aria-valuemax={scenes.length} aria-valuenow={currentScene + 1}>
+          <span className="presentation-progress__fill" style={{ width: `${progress}%` }} />
+        </div>
+        <span className="presentation-count">{scene.number}<span>/</span>{String(scenes.length).padStart(2, '0')}</span>
+        <button className="presentation-step-button" type="button" onClick={next} aria-label="Trang tiếp theo" title="Trang tiếp theo · →"><ChevronRight size={21} /></button>
+        <div className="presentation-footer__ribbon" aria-hidden="true" />
+      </footer>
 
-          {/* Top Exhibition Navigation Bar */}
-          <header className={`stage-header ${showNavigation ? '' : 'stage-header--hidden'} ${activityVisible ? '' : 'stage-header--dim'}`}>
-            <div className="wordmark">
-              <span className="brand-seal">★</span>
-              <div>
-                <span className="wordmark__title">HÀNH TRÌNH HỒ CHÍ MINH</span>
-                <small className="wordmark__subtitle">MÔN TƯ TƯỞNG HỒ CHÍ MINH · NHÓM 1</small>
-              </div>
-            </div>
+      {!showNavigation && <button className="navigation-restore" type="button" onClick={toggleNavigation} aria-label="Hiện điều khiển" title="Hiện điều khiển · H"><Eye size={19} /></button>}
 
-            <div className="top-controls">
-              <button
-                onClick={() => usePresentationStore.getState().togglePresenterInfo()}
-                aria-label="Bật thông tin người thuyết trình"
-                title="Phím tắt: P"
-              >
-                <kbd>P</kbd>
-                <span>NGƯỜI DẪN</span>
-              </button>
-              <button
-                onClick={() => usePresentationStore.getState().toggleOverview()}
-                aria-label="Mở mục lục cảnh"
-                title="Phím tắt: O"
-              >
-                <kbd>O</kbd>
-                <span>MỤC LỤC</span>
-              </button>
-              <button
-                onClick={() => usePresentationStore.getState().toggleSources()}
-                aria-label="Mở nguồn tư liệu"
-                title="Phím tắt: S"
-              >
-                <kbd>S</kbd>
-                <span>NGUỒN</span>
-              </button>
-              <button
-                onClick={() => { void toggleFullscreen(); }}
-                aria-label="Bật toàn màn hình"
-                title="Phím tắt: F"
-              >
-                <kbd>F</kbd>
-                <span>TOÀN MÀN HÌNH</span>
-              </button>
-            </div>
-          </header>
-
-          {/* Flowing Crimson Silk Ribbon with Golden Star & Interactive Milestones */}
-          <FlowingRedRibbonBanner
-            currentScene={currentScene}
-            onSelectMilestone={(index) => goToScene(index)}
-          />
-
-          {/* Bottom quick actions */}
-          <div className={`bottom-actions ${showNavigation ? '' : 'bottom-actions--hidden'} ${activityVisible ? '' : 'bottom-actions--dim'}`}>
-            <span className="bottom-actions__chapter">{scenes[currentScene].chapter}</span>
-            <div>
-              <button onClick={() => usePresentationStore.getState().toggleAIUsage()}>
-                <kbd>A</kbd>
-                <span>MINH BẠCH HỌC THUẬT</span>
-              </button>
-            </div>
-          </div>
-
-          <NavigationHint />
-          <nav className="mobile-scene-nav" aria-label="Điều hướng cảnh">
-            <button type="button" onClick={previous} aria-label="Cảnh trước">← <span>TRƯỚC</span></button>
-            <span>{String(currentScene + 1).padStart(2, '0')} / {scenes.length}</span>
-            <button type="button" onClick={next} aria-label="Cảnh tiếp theo"><span>TIẾP</span> →</button>
-          </nav>
-          <PresenterOverlay />
-          <SourcesDrawer />
-          <AIUsagePanel />
-          <SceneOverview />
-        </>
-      ) : (
-        <Preloader />
-      )}
+      <PresenterOverlay />
+      <SourcesDrawer />
+      <AIUsagePanel />
+      <SceneOverview />
     </main>
   );
 }

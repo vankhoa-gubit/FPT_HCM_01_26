@@ -43,9 +43,11 @@ Click the left or right half of the stage to move backward or forward. Scene cha
 - **Verified historical statements:** edit `src/data/historicalContent.ts`. Keep facts separate from scene layout and attach their `sourceIds`.
 - **Sources:** edit `src/data/sources.ts`. Each source record contains its title, organization, year, URL, supported fact, and scene references. Source badges open the matching record in the drawer.
 - **Scene layout and motion:** edit `src/scenes/SceneContent.tsx` for DOM typography and `src/three/WorldCanvas.tsx` for the persistent WebGL world, camera states, harbor, documents, and conceptual nodes.
-- **Images:** the current version uses locally generated CSS and Three.js geometry; it does not depend on image files. If archival images are added, place them under `public/assets/`, keep them local for offline playback, and label illustrations as “Ảnh minh họa.”
+- **Images and models:** bundled photographs, historical document scans, and illustrative GLB props live under `public/assets/`. Distinguish historical documents from illustrative assets in scene copy; record third-party credits and licenses in `src/data/sources.ts` and the in-app source and AI panels.
 - **Timing:** edit scene durations in `src/data/scenes.ts`; edit internal presenter beats in `src/store/presentationStore.ts`.
 
 ## Content and media notes
 
 The globe route is symbolic and does not claim to show a city-by-city itinerary. The 1911, 1919, July 1920, and Tours 1920 facts are linked in the Sources drawer. Scene 9 is labeled as the group's analytical synthesis. No historical quotation or AI-generated archival portrait is used. Before presenting, students should compare the final narration with their assigned course text and review the source list.
+
+See [QA_REPORT.md](QA_REPORT.md) for the latest build, viewport, and interaction checks.
